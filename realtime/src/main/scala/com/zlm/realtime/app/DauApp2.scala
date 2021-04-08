@@ -29,7 +29,7 @@ object DauApp2 {
             MyKafkaUtil.getKafkaStream(topic, ssc, groupId)
 
         // TODO 3. 处理数据流
-
+        val s = "123"
 
     }
 }
