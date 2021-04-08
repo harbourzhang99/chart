@@ -5,7 +5,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.InputDStream
-import org.apache.spark.streaming.kafka010.{ConsumerStrategies, KafkaUtils, LocationStrategies}
+import org.apache.spark.streaming.kafka010.{ConsumerStrategies, ConsumerStrategy, KafkaUtils, LocationStrategies}
 
 import java.util.Properties
 
@@ -28,31 +28,38 @@ object MyKafkaUtil {
         ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG -> (false: java.lang.Boolean)
     )
 
-    def getKafkaStream(topic: String, ssc: StreamingContext): InputDStream[ConsumerRecord[String, String]] = {
-        val dStream: InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(
-            ssc,
-            LocationStrategies.PreferConsistent,
-            ConsumerStrategies.Subscribe[String, String](Array(topic), kafkaParam)
-        )
-        dStream
+    def getKafkaStream(topic: String,
+                       ssc: StreamingContext): InputDStream[ConsumerRecord[String, String]] = {
+        getKafkaStream(topic: String, ssc: StreamingContext, null, null)
     }
 
-    def getKafkaStream(topic: String, ssc: StreamingContext,
+    def getKafkaStream(topic: String,
+                       ssc: StreamingContext,
                        groupId: String): InputDStream[ConsumerRecord[String, String]] = {
-        kafkaParam("group.id") = groupId
-        getKafkaStream(topic: String, ssc: StreamingContext)
+        getKafkaStream(topic: String, ssc: StreamingContext, null, groupId)
     }
 
-    // 从指定偏移量开始从kafka拿数据
-    def getKafkaStream(topic: String, ssc: StreamingContext, offset: Map[TopicPartition, Long],
-                       groupId: String): InputDStream[ConsumerRecord[String, String]] = {
-        kafkaParam("group.id") = groupId
-        val dStream: InputDStream[ConsumerRecord[String, String]] = KafkaUtils.createDirectStream(
-            ssc,
-            LocationStrategies.PreferConsistent,
-            ConsumerStrategies.Subscribe[String, String](Array(topic), kafkaParam, offset)
-        )
-        dStream
+    /**
+     * 从指定偏移量开始从kafka拿数据
+     * @param topic 主题
+     * @param ssc 数据流
+     * @param offsetMap 每个主题与分区，对应的消费者组的偏移量
+     * @param groupId 消费者组
+     * @return kafkaDStream
+     */
+    def getKafkaStream(topic: String,
+                       ssc: StreamingContext,
+                       offsetMap: Map[TopicPartition, Long],
+                       groupId: String
+                      ): InputDStream[ConsumerRecord[String, String]] = {
+        var consumerStrategy: ConsumerStrategy[String, String] = null
+        if (groupId != null) kafkaParam("group.id") = groupId
+        if (offsetMap == null || offsetMap.isEmpty) {
+            consumerStrategy = ConsumerStrategies.Subscribe[String, String](Array(topic), kafkaParam)
+        } else {
+            consumerStrategy = ConsumerStrategies.Subscribe[String, String](Array(topic), kafkaParam, offsetMap)
+        }
+        KafkaUtils.createDirectStream(ssc, LocationStrategies.PreferConsistent, consumerStrategy)
     }
 
 }

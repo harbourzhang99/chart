@@ -174,7 +174,6 @@ object MyESUtil {
         client.close()
     }
 
-
     def main(args: Array[String]): Unit = {
         queryIndex()
     }
